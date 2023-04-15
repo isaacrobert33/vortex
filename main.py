@@ -34,6 +34,7 @@ class Terminal(QtWidgets.QWidget):
 
         # Create a layout to hold the widgets
         layout = QtWidgets.QVBoxLayout()
+        self.setWindowOpacity(0.9)
 
         # Create a text edit widget to display the output of the terminal
         self.output = QtWidgets.QTextEdit()
