@@ -62,6 +62,19 @@ background-color: rgb(33, 83, 83);</string>
     <property name="styleSheet">
      <string notr="true">border: 1px solid rgb(140, 140, 140);</string>
     </property>
+    <widget class="QTextEdit" name="textEdit">
+     <property name="geometry">
+      <rect>
+       <x>10</x>
+       <y>440</y>
+       <width>801</width>
+       <height>91</height>
+      </rect>
+     </property>
+     <property name="styleSheet">
+      <string notr="true"/>
+     </property>
+    </widget>
    </widget>
   </widget>
  </widget>
