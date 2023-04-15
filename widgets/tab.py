@@ -10,7 +10,8 @@ import subprocess
 
 
 class CommandRunner(QThread):
-    command_output = Signal(str)
+    cmd_stdout = Signal(str)
+    exec_done = Signal(bool)
 
     def __init__(self, command):
         super(CommandRunner, self).__init__()
@@ -27,25 +28,27 @@ class CommandRunner(QThread):
             output = process.stdout.readline().decode(sys.stdout.encoding).strip()
 
             if output == "" and process.poll() is not None:
+                self.exec_done.emit(True)
                 break
 
-            self.command_output.emit(output)
+            self.cmd_stdout.emit(output)
 
         # Wait for the process to finish
         process.wait()
 
 
 class UiTab(QWidget):
-    def __init__(
-        self, parent: typing.Optional[QWidget] = ..., f: Qt.WindowFlags = ...
-    ) -> None:
-        super().__init__(parent, f)
+    def __init__(self, parent: typing.Optional[QWidget] = ...) -> None:
+        super().__init__(parent)
 
         self.setObjectName("tab")
-        self.currentDir = None
 
-        self.stdout = QLineEdit(self)
-        self.stdout.setObjectName("lineEdit")
+        self.dirChanged = False
+        self.currentDir = os.getcwd()
+
+        # Create a text edit widget to display the output of the terminal
+        self.stdout = QTextEdit(self)
+        self.stdout.setObjectName("stdin")
         self.stdout.setGeometry(QRect(0, 560, 801, 41))
         self.stdout.setStyleSheet(
             "QLineEdit::cursor {\n"
@@ -53,15 +56,18 @@ class UiTab(QWidget):
             "        background-color:  rgb(255, 72, 135);\n"
             "    }"
         )
-        self.label = QLabel(self)
-        self.label.setObjectName("label")
-        self.label.setGeometry(QRect(0, 540, 231, 16))
-        self.label.setStyleSheet(
+        self.stdout.setReadOnly(True)
+
+        # Create a directory label
+        self.current_dir_label = QLabel(self)
+        self.current_dir_label.setObjectName("label")
+        self.current_dir_label.setGeometry(QRect(0, 540, 231, 16))
+        self.current_dir_label.setStyleSheet(
             "color: rgb(255, 72, 135); font-size:14px; font-weight:600; "
         )
-        self.label.setText("~/code-intensive/vortex")
+        self.current_dir_label.setText(self.currentDir)
 
-        self.stdin = QTextEdit(self.widget)
+        self.stdin = QLineEdit(self)
         self.stdin.setObjectName("commandIn")
         self.stdin.setGeometry(QRect(10, 440, 801, 91))
         self.stdin.setStyleSheet("")
@@ -71,15 +77,17 @@ class UiTab(QWidget):
 
     def executeCommand(self):
         # Get the command to be executed from the input widget
-        command = self.stdin.text().strip()
+        self.command = self.stdin.text().strip()
 
         # Clear the input widget
         self.stdin.clear()
 
         # Create a CommandRunner instance and connect its command_output signal to updateOutput
-        self.runner = CommandRunner(command)
+        self.runner = CommandRunner(self.command)
         self.stdout.setText(f"{self.stdout.text}\n{self.currentDir}")
-        self.runner.stdout.connect(self.updateOutput)
+
+        self.runner.cmd_stdout.connect(self.updateOutput)
+        self.runner.exec_done.connect(self.executed)
 
         # Start the CommandRunner thread
         self.runner.start()
@@ -90,3 +98,8 @@ class UiTab(QWidget):
         cursor.movePosition(cursor.End)
         cursor.insertText(output + "\n")
         self.stdout.setTextCursor(cursor)
+
+    def executed(self, state):
+        if "cd" in self.command and state:
+            self.currentDir = os.getcwd()
+            self.current_dir_label = self.currentDir
