@@ -38,39 +38,45 @@ class CommandRunner(QThread):
 
 
 class UiTab(QWidget):
-    def __init__(self, parent: typing.Optional[QWidget] = ...) -> None:
+    def __init__(
+        self,
+        parent: typing.Optional[QWidget] = ...,
+        mainwindow: typing.Optional[QMainWindow] = ...,
+    ) -> None:
         super().__init__(parent)
 
         self.setObjectName("tab")
+        self.mainwindow = mainwindow
 
-        self.dirChanged = False
         self.currentDir = os.getcwd()
 
         # Create a text edit widget to display the output of the terminal
         self.stdout = QTextEdit(self)
-        self.stdout.setObjectName("stdin")
-        self.stdout.setGeometry(QRect(0, 560, 801, 41))
-        self.stdout.setStyleSheet(
-            "QLineEdit::cursor {\n"
-            "        width:  3px;\n"
-            "        background-color:  rgb(255, 72, 135);\n"
-            "    }"
-        )
+        self.stdout.setObjectName("stdout")
+        self.stdout.setGeometry(QRect(-5, 0, 960, 540))
+        self.stdout.setStyleSheet("border: 1px solid gray")
         self.stdout.setReadOnly(True)
 
         # Create a directory label
         self.current_dir_label = QLabel(self)
         self.current_dir_label.setObjectName("label")
-        self.current_dir_label.setGeometry(QRect(0, 540, 231, 16))
+        self.current_dir_label.setGeometry(QRect(0, 555, 960, 16))
         self.current_dir_label.setStyleSheet(
             "color: rgb(255, 72, 135); font-size:14px; font-weight:600; "
         )
         self.current_dir_label.setText(self.currentDir)
 
+        # Create an stdin field
         self.stdin = QLineEdit(self)
-        self.stdin.setObjectName("commandIn")
-        self.stdin.setGeometry(QRect(10, 440, 801, 91))
-        self.stdin.setStyleSheet("")
+        self.stdin.setObjectName("stdin")
+        self.stdin.setGeometry(QRect(0, 575, 960, 40))
+        self.stdin.setStyleSheet(
+            "border: none;"
+            "QLineEdit::cursor {\n"
+            "        width:  3px;\n"
+            "        background-color:  rgb(255, 72, 135);\n"
+            "    }"
+        )
 
         # Connect the returnPressed signal of the input widget to the executeCommand slot
         self.stdin.returnPressed.connect(self.executeCommand)
@@ -78,13 +84,14 @@ class UiTab(QWidget):
     def executeCommand(self):
         # Get the command to be executed from the input widget
         self.command = self.stdin.text().strip()
-
         # Clear the input widget
         self.stdin.clear()
 
         # Create a CommandRunner instance and connect its command_output signal to updateOutput
         self.runner = CommandRunner(self.command)
-        self.stdout.setText(f"{self.stdout.text}\n{self.currentDir}")
+        self.stdout.setText(
+            f"<html>{self.stdout.toPlainText()}\n<b>{self.currentDir}</b><br><b>{self.command}</b><br></html>"
+        )
 
         self.runner.cmd_stdout.connect(self.updateOutput)
         self.runner.exec_done.connect(self.executed)
@@ -103,3 +110,5 @@ class UiTab(QWidget):
         if "cd" in self.command and state:
             self.currentDir = os.getcwd()
             self.current_dir_label = self.currentDir
+        if "exit" in self.command:
+            self.mainwindow.close()

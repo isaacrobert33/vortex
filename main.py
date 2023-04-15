@@ -1,5 +1,6 @@
 import subprocess
 import sys
+import os
 
 from PySide2 import QtCore, QtWidgets
 from widgets.tab import UiTab
@@ -13,12 +14,12 @@ class Terminal(QtWidgets.QMainWindow):
         # Create a layout to hold the widgets
         self.tabs = UiTabs(self)
         self.setWindowOpacity(0.9)
+        self.setGeometry(QtCore.QRect(200, 100, 960, 640))
         self.setStyleSheet(
             "color: rgb(255, 255, 255);\n" "background-color: rgb(33, 83, 83);"
         )
 
-        self.tabs.create_new_tab("~", UiTab)
-
+        self.tabs.create_new_tab(os.getcwd(), UiTab)
         # Set the layout for the widget
         self.setCentralWidget(self.tabs)
 

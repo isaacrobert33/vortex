@@ -4,23 +4,23 @@ from PySide2.QtWidgets import (
     QWidget,
 )
 from PySide2.QtGui import QIcon
+from PySide2.QtCore import QRect
 
 
-class UiTabs(QWidget):
-    def __init__(self, parent):
+class UiTabs(QTabWidget):
+    def __init__(self, mainwindow):
         super().__init__()
-        # Create a tab widget
-        self.tab_widget = QTabWidget()
-        self.setParent(parent)
+
+        self.mainwindow = mainwindow
 
     def create_new_tab(self, tab_name, tab_widget: QWidget):
         # Add new tab to the tab widget
-        tab = tab_widget(self)
-        self.tab_widget.addTab(tab, tab_name)
+        tab = tab_widget(self, self.mainwindow)
+        self.addTab(tab, tab_name)
 
-        return self.tab_widget.currentIndex() + 1
+        return self.currentIndex() + 1
 
     def close_tab(self, tab_index):
-        self.tab_widget.removeTab(tab_index)
+        self.removeTab(tab_index)
 
         return True
