@@ -7,7 +7,8 @@ from PySide2.QtWidgets import (
     QPushButton,
     QFileDialog,
 )
-from PySide2.QtCore import QProcess
+from PySide2.QtCore import QProcess, QTextCodec
+from PySide2.QtGui import QTextOption
 
 
 class Editor(QWidget):
@@ -49,13 +50,14 @@ class Editor(QWidget):
         # Redirect the input of the process to the input edit widget
         editor_process.setProcessChannelMode(QProcess.MergedChannels)
         self.input_edit.textChanged.connect(
-            lambda: editor_process.write(self.input_edit.toPlainText().encode())
+            lambda: editor_process.write(self.input_edit.toPlainText().encode("utf-8"))
         )
 
     def read_output(self):
         # Read the output of the process and display it in the text edit widget
         output = self.sender().readAllStandardOutput().data()
-        output_str = QString.fromLocal8Bit(output)
+        output_str = str(output, encoding="utf-8")
+        print(output_str)
         self.text_edit.append(output_str)
 
 
