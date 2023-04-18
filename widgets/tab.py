@@ -11,47 +11,24 @@ import subprocess
 HOME_DIR = os.path.expanduser("~")
 
 
-class ShellRunner(QThread):
-    cmd_stdin = Signal(str)
+class ShellReader(QObject):
     cmd_stdout = Signal(str)
     exec_done = Signal(bool)
 
-    def __init__(self):
-        super(ShellRunner, self).__init__()
-        self.chdir = None
-        self.cmd_stdin.connect(self.exec_cmd)
+    def __init__(self, process):
+        super().__init__()
+        self.process = process
 
-    def run(self) -> None:
-        self.proc = subprocess.Popen(
-            ["/bin/bash"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
+    def run(self):
+        print("Outputting...")
+        for line in iter(self.process.stdout.readline, b""):
+            self.cmd_stdout.emit(line.decode("utf-8"))
 
-        self.proc.wait()
+        self.exec_done.emit(True)
 
-    @Slot
-    def exec_cmd(self, cmd):
-        self.proc.stdin.write(cmd.encode("utf-8"))
-        self.proc.stdin.write(b"\n")
-        self.proc.stdin.flush()
-
-        # Read the output stream of the process
-        while True:
-            output = self.proc.stdout.readline().decode(sys.stdout.encoding).strip()
-
-            if self.chdir:
-                with open(f"{HOME_DIR}/vortex/.chdir", "r") as f:
-                    dir = f.read().strip()
-                    os.chdir(dir)
-                f.close()
-
-            if output == "" and self.proc.poll() is not None:
-                self.exec_done.emit(True)
-                break
-
-            self.cmd_stdout.emit(output)
+    def stop(self):
+        self.process.terminate()
+        self.process.waitForFinished()
 
 
 class CommandRunner(QThread):
@@ -140,11 +117,23 @@ class UiTab(QWidget):
         self.stdin.setWindowOpacity(0.5)
         # Connect the returnPressed signal of the input widget to the executeCommand slot
         self.stdin.returnPressed.connect(self.executeCommand)
-        self.shell = ShellRunner()
-        self.shell.cmd_stdout.connect(self.updateOutput)
-        self.shell.exec_done.connect(self.executed)
 
-        self.shell.start()
+        # Start a shell process
+        self.shell_process = subprocess.Popen(
+            ["bash"],
+            stdin=subprocess.PIPE,
+            stdout=subprocess.PIPE,
+            stderr=subprocess.PIPE,
+        )
+
+        # Start a QThread to read the output from the shell process
+        self.reader_thread = QThread()
+        self.reader = ShellReader(self.shell_process)
+        self.reader.moveToThread(self.reader_thread)
+        self.reader.cmd_stdout.connect(self.updateOutput)
+        self.reader.exec_done.connect(self.executed)
+        self.reader_thread.started.connect(self.reader.run)
+        self.reader_thread.start()
 
     def executeCommand(self):
         # Get the command to be executed from the input widget
@@ -160,11 +149,13 @@ class UiTab(QWidget):
 
         # Start the CommandRunner thread
         # self.runner.start()
-        self.shell.cmd_stdin.emit(self.command)
+        print("Running command...")
+        self.shell_process.stdin.write(self.command.encode("utf-8") + b"\n")
         self.stdin.setDisabled(True)
 
     def updateOutput(self, output):
         # Append the output to the text edit widget
+        print(output, "\n")
         cursor = self.stdout.textCursor()
         cursor.movePosition(cursor.End)
         cursor.insertText(output + "\n")
