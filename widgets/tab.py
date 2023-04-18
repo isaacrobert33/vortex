@@ -118,44 +118,24 @@ class UiTab(QWidget):
         # Connect the returnPressed signal of the input widget to the executeCommand slot
         self.stdin.returnPressed.connect(self.executeCommand)
 
-        # Start a shell process
-        self.shell_process = subprocess.Popen(
-            ["bash"],
-            stdin=subprocess.PIPE,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.PIPE,
-        )
-
-        # Start a QThread to read the output from the shell process
-        self.reader_thread = QThread()
-        self.reader = ShellReader(self.shell_process)
-        self.reader.moveToThread(self.reader_thread)
-        self.reader.cmd_stdout.connect(self.updateOutput)
-        self.reader.exec_done.connect(self.executed)
-        self.reader_thread.started.connect(self.reader.run)
-        self.reader_thread.start()
-
     def executeCommand(self):
         # Get the command to be executed from the input widget
         self.command = self.stdin.text().strip()
 
         # Create a CommandRunner instance and connect its command_output signal to updateOutput
-        # self.runner = CommandRunner(self.command)
+        self.runner = CommandRunner(self.command)
         stdout = f"{self.stdout.toHtml().replace('</html>', '')}<hr>{self.currentDir}<br><b>{self.command}</b><br></html>"
         self.stdout.setText(stdout)
 
-        # self.runner.cmd_stdout.connect(self.updateOutput)
-        # self.runner.exec_done.connect(self.executed)
+        self.runner.cmd_stdout.connect(self.updateOutput)
+        self.runner.exec_done.connect(self.executed)
 
         # Start the CommandRunner thread
-        # self.runner.start()
-        print("Running command...")
-        self.shell_process.stdin.write(self.command.encode("utf-8") + b"\n")
+        self.runner.start()
         self.stdin.setDisabled(True)
 
     def updateOutput(self, output):
         # Append the output to the text edit widget
-        print(output, "\n")
         cursor = self.stdout.textCursor()
         cursor.movePosition(cursor.End)
         cursor.insertText(output + "\n")
