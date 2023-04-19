@@ -12,6 +12,13 @@ import subprocess
 import select
 
 HOME_DIR = os.path.expanduser("~")
+SHELL_HISTORY_FILENAME = ".bash_history"
+
+if os.environ["SHELL"].endswith("zsh"):
+    SHELL_HISTORY_FILENAME = ".zsh_history"
+elif os.environ["SHELL"].endswith("ksh"):
+    SHELL_HISTORY_FILENAME = ".sh_history"
+
 current_cmd = None
 executed = False
 
@@ -58,6 +65,9 @@ class CommandRunner(QThread):
         process.wait()
 
 
+TIC, TOC = None, None
+
+
 class ShellRunner(QThread):
     alive = True
     cmd_stdout = Signal(str)
@@ -68,7 +78,7 @@ class ShellRunner(QThread):
         self.reader = None
 
     def run(self) -> None:
-        global current_cmd, executed
+        global current_cmd, executed, TIC
         self.shell = subprocess.Popen(
             ["bash"],
             stderr=subprocess.PIPE,
@@ -82,13 +92,12 @@ class ShellRunner(QThread):
 
         while self.alive:
             if current_cmd and not executed:
-                self.shell.stdin.write(f"{current_cmd}\n".encode())
+                TIC = time.time()
+                self.shell.stdin.write(
+                    f"{current_cmd} && echo 'done_executing_vortex'\n".encode()
+                )
                 self.shell.stdin.flush()
                 executed = True
-
-
-def exec_timer():
-    time.sleep(5)
 
 
 class ShellReader(QThread):
@@ -103,16 +112,14 @@ class ShellReader(QThread):
 
     def run(self) -> None:
         while not self.exit:
-            if select.select([self.shell.stdout], [], [], 0)[0]:
-                output = self.shell.stdout.readline().decode().strip()
-                print(output, self.shell.poll())
-                # if output == "" and self.shell.poll() is not None:
-                #     break
+            output = self.shell.stdout.readline().decode().strip()
 
+            if "done_executing_vortex" not in output:
                 self.cmd_stdout.emit(output)
-            else:
-                if executed:
-                    self.finished_exec()
+
+            if executed and "done_executing_vortex" in output:
+                self.finished_exec()
+                TOC = time.time()
 
     def finished_exec(self):
         print("Done executing")
@@ -120,6 +127,46 @@ class ShellReader(QThread):
         self.exec_done.emit(True)
         current_cmd = None
         executed = False
+
+
+class StdIn(QLineEdit):
+    def __init__(self, parent) -> None:
+        super().__init__(parent=parent)
+        self.parent = parent
+        self.currentIndex = None
+
+        with open(os.path.join(HOME_DIR, SHELL_HISTORY_FILENAME), "r") as f:
+            self.shell_history = f.read().split("\n")[::-1]
+
+    def keyPressEvent(self, event) -> None:
+        if event.key() == Qt.Key_Up:
+            self.navigate_up()
+        elif event.key() == Qt.Key_Down:
+            self.navigate_down()
+
+        super().keyPressEvent(event)
+
+    def navigate_up(self):
+        t = self.text().strip()
+        if not t:
+            self.shell_history.append(t)
+            self.setText(self.shell_history[-2].strip())
+            self.currentIndex = -2
+        else:
+            if not self.currentIndex == 0:
+                self.currentIndex -= 1
+                self.setText(self.shell_history[self.currentIndex])
+
+        self.setCursorPosition(len(self.text()))
+
+    def navigate_down(self):
+        t = self.text().strip()
+        if t and self.currentIndex is not None:
+            if not self.currentIndex == len(self.shell_history):
+                self.currentIndex += 1
+                self.setText(self.shell_history[self.currentIndex])
+
+        self.setCursorPosition(len(self.text()))
 
 
 class UiTab(QWidget):
@@ -147,6 +194,10 @@ class UiTab(QWidget):
         self.stdout.setReadOnly(True)
         self.stdout.setWindowOpacity(0.5)
 
+        self.runtime_stdout = QTextEdit(self)
+        self.runtime_stdout.setGeometry(QRect(-5, 560, 960, 0))
+        self.setVisible(False)
+
         # Create a directory label
         self.current_dir_label = QLabel(self)
         self.current_dir_label.setObjectName("label")
@@ -157,7 +208,7 @@ class UiTab(QWidget):
         self.current_dir_label.setText(self.currentDir)
 
         # Create an stdin field
-        self.stdin = QLineEdit(self)
+        self.stdin = StdIn(self)
         self.stdin.setObjectName("stdin")
         self.stdin.setGeometry(QRect(0, 575, 955, 38))
         self.stdin.setStyleSheet(
@@ -181,28 +232,23 @@ class UiTab(QWidget):
         # Get the command to be executed from the input widget
         self.command = self.stdin.text().strip()
 
-        # Create a CommandRunner instance and connect its command_output signal to updateOutput
-        # self.runner = CommandRunner(self.command)
-        stdout = f"{self.stdout.toHtml().replace('</html>', '')}<hr>{self.currentDir}<br><b>{self.command}</b><br></html>"
-        self.stdout.setText(stdout)
+        # stdout = f"{self.stdout.toHtml().replace('</html>', '')}<hr>{self.currentDir}<br><b>{self.command}</b><br></html>"
+        # self.runtime_stdout.setText(stdout)
 
-        # self.runner.cmd_stdout.connect(self.updateOutput)
-        # self.runner.exec_done.connect(self.executed)
         if "exit" in self.command:
             self.mainwindow.close()
 
         current_cmd = self.command
-
-        # Start the CommandRunner thread
-        # self.runner.start()
         self.stdin.setDisabled(True)
+        self.runtime_stdout.setVisible(True)
 
     def updateOutput(self, output):
         # Append the output to the text edit widget
-        cursor = self.stdout.textCursor()
+        cursor = self.runtime_stdout.textCursor()
         cursor.movePosition(cursor.End)
         cursor.insertText(output + "\n")
-        self.stdout.setTextCursor(cursor)
+        self.runtime_stdout.setTextCursor(cursor)
+        self.adjust_height()
 
     def executed(self, state):
         if "cd " in self.command and state:
@@ -216,3 +262,20 @@ class UiTab(QWidget):
         self.stdin.clear()
         self.stdin.setDisabled(False)
         self.stdin.setFocus()
+        self.stdout.setText(
+            f"{self.runtime_stdout.toHtml().replace('</html>', '')}<hr>{self.currentDir}<br><b>{self.command}</b><br></html>"
+        )
+        self.runtime_stdout.setVisible(False)
+        self.runtime_stdout.setText("")
+        self.current_dir_label.move(QPoint(0, 555))
+        self.stdin.move(QPoint(0, 575))
+
+    def adjust_height(self):
+        content_height = self.runtime_stdout.document().size().height()
+        desired_height = self.runtime_stdout.sizeHint().height()
+        self.current_dir_label.move(QPoint(0, self.current_dir_label.y() - 15))
+        self.stdin.move(QPoint(0, self.stdin.y() - 15))
+        self.runtime_stdout.move(QPoint(0, self.runtime_stdout.y() - 15))
+
+        if content_height != desired_height:
+            self.runtime_stdout.setMinimumHeight(content_height)
