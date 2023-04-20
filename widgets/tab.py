@@ -4,12 +4,11 @@ from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 from .stdin import StdIn
+from .command_list import CommandList
 import os
-import sys
 import time
 import typing
 import subprocess
-import select
 
 HOME_DIR = os.path.expanduser("~")
 SHELL_HISTORY_FILENAME, SHELL = ".bash_history", "bash"
@@ -21,49 +20,6 @@ elif os.environ["SHELL"].endswith("ksh"):
 
 current_cmd = None
 executed = False
-
-
-class CommandRunner(QThread):
-    cmd_stdout = Signal(str)
-    exec_done = Signal(bool)
-
-    def __init__(self, command):
-        super(CommandRunner, self).__init__()
-        self.command = command
-        self.chdir = None
-
-    def run(self):
-        # Execute the command using subprocess.Popen
-        if "cd " in self.command:
-            self.command = (
-                self.command
-                + f' && pwd > ~/vortex/.chdir && export OLDPWD="{os.getcwd()}"'
-            )
-            self.chdir = True
-
-        process = subprocess.Popen(
-            self.command, shell=True, stdout=subprocess.PIPE, stderr=subprocess.STDOUT
-        )
-
-        # Read the output stream of the process
-        while True:
-            output = process.stdout.readline().decode(sys.stdout.encoding).strip()
-
-            if self.chdir:
-                with open(f"{HOME_DIR}/vortex/.chdir", "r") as f:
-                    dir = f.read().strip()
-                    os.chdir(dir)
-                f.close()
-
-            if output == "" and process.poll() is not None:
-                self.exec_done.emit(True)
-                break
-
-            self.cmd_stdout.emit(output)
-
-        # Wait for the process to finish
-        process.wait()
-
 
 TIC, TOC = None, None
 
@@ -138,32 +94,6 @@ with open(os.path.join(HOME_DIR, SHELL_HISTORY_FILENAME), "r") as f:
         shell_history[i] = c.strip()
         if ";" in c:
             shell_history[i] = c.split(";")[1]
-
-
-class CommandList(QWidget):
-    cmd_clicked = Signal(str)
-
-    def __init__(self, parent) -> None:
-        super().__init__(parent)
-
-        self.layout = QVBoxLayout()
-        self.item_list = QListWidget()
-        self.layout.addWidget(self.item_list)
-        self.setLayout(self.layout)
-        self.item_list.itemClicked.connect(self.handle_item_clicked)
-        self.setStyleSheet(
-            "background-color: rgb(14, 46, 52); border-top-left-radius: 5px; border-top-right-radius: 5px;"
-        )
-        self.setWindowOpacity(0.5)
-        # self.viewport().setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
-
-    def handle_item_clicked(self, item):
-        self.cmd_clicked.emit(item.text())
-
-    def load_items(self):
-        for command in shell_history:
-            item = QListWidgetItem(command)
-            self.item_list.addItem(item)
 
 
 class UiTab(QWidget):
