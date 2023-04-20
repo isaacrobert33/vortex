@@ -72,6 +72,7 @@ class ShellRunner(QThread):
     alive = True
     cmd_stdout = Signal(str)
     cmd_exec = Signal(bool)
+    readerInitiated = Signal(bool)
 
     def __init__(self):
         super().__init__()
@@ -80,15 +81,16 @@ class ShellRunner(QThread):
     def run(self) -> None:
         global current_cmd, executed, TIC
         self.shell = subprocess.Popen(
-            ["bash"],
+            [SHELL],
             stderr=subprocess.PIPE,
             shell=False,
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
         )
-
+        print("Started shell")
         self.reader = ShellReader(self.shell)
         self.reader.start()
+        self.readerInitiated.emit(True)
 
         while self.alive:
             if current_cmd and not executed:
@@ -133,6 +135,7 @@ with open(os.path.join(HOME_DIR, SHELL_HISTORY_FILENAME), "r") as f:
     shell_history = f.read().split("\n")
 
     for i, c in enumerate(shell_history):
+        shell_history[i] = c.strip()
         if ";" in c:
             shell_history[i] = c.split(";")[1]
 
@@ -181,6 +184,29 @@ class StdIn(QTextEdit):
         self.textCursor().movePosition(self.textCursor().End)
 
 
+class CommandList(QWidget):
+    def __init__(self, parent) -> None:
+        super().__init__(parent)
+
+        self.layout = QVBoxLayout()
+        self.item_list = QListWidget()
+        self.layout.addWidget(self.item_list)
+        self.setLayout(self.layout)
+        self.item_list.itemClicked.connect(self.handle_item_clicked)
+        self.setStyleSheet(
+            "background-color: rgb(14, 46, 52, 230); border-radius: 5px;"
+        )
+        self.setWindowOpacity(0.5)
+
+    def handle_item_clicked(self, item):
+        print(item.text())
+
+    def load_items(self):
+        for command in shell_history:
+            item = QListWidgetItem(command)
+            self.item_list.addItem(item)
+
+
 class UiTab(QWidget):
     def __init__(
         self, parent, mainwindow: typing.Optional[QMainWindow] = ..., tab_index=None
@@ -189,7 +215,6 @@ class UiTab(QWidget):
         self.parent = parent
         self.tab_index = tab_index
 
-        self.setObjectName("tab")
         self.mainwindow = mainwindow
         self.command = None
 
@@ -198,7 +223,7 @@ class UiTab(QWidget):
 
         # Create a text edit widget to display the output of the terminal
         self.stdout = QTextEdit(self)
-        self.stdout.setObjectName("stdout")
+        self.stdout.setObjectName(f"stdout-{tab_index}")
         self.stdout.setGeometry(QRect(-5, 0, 960, 540))
         self.stdout.setStyleSheet(
             'border: 1px solid gray; background-color: transparent;font: 13pt "Courier New";'
@@ -209,7 +234,7 @@ class UiTab(QWidget):
 
         # Create a directory label
         self.current_dir_label = QLabel(self)
-        self.current_dir_label.setObjectName("label")
+        self.current_dir_label.setObjectName(f"dir-{tab_index}")
         self.current_dir_label.setGeometry(QRect(0, 555, 960, 16))
         self.current_dir_label.setStyleSheet(
             "color: rgb(255, 72, 135); font-size:14px; font-weight:600; "
@@ -218,8 +243,8 @@ class UiTab(QWidget):
 
         # Create an stdin field
         self.stdin = StdIn(self)
-        self.stdin.setObjectName("stdin")
         self.stdin.setGeometry(QRect(0, 575, 955, 38))
+        self.stdin.setObjectName(f"stdin-{tab_index}")
         self.stdin.setStyleSheet(
             """border: none;
             font: 75 bold 13pt "Courier New";"""
@@ -228,8 +253,14 @@ class UiTab(QWidget):
         # Connect the returnPressed signal of the input widget to the executeCommand slot
         self.stdin.returnPressed.connect(self.executeCommand)
 
+        self.cmd_list = CommandList(self)
+        self.cmd_list.setGeometry(QRect(0, 350, 960, 200))
+        self.cmd_list.setObjectName(f"cmd_list-{tab_index}")
+        self.cmd_list.load_items()
+
+        print("Running another instance of shell runner...")
         self.shell_proc = ShellRunner()
-        self.shell_proc.started.connect(self.thread_setup)
+        self.shell_proc.readerInitiated.connect(self.thread_setup)
         self.shell_proc.start()
 
     def keyPressEvent(self, event) -> None:
@@ -279,9 +310,6 @@ class UiTab(QWidget):
         self.stdin.clear()
         self.stdin.setDisabled(False)
         self.stdin.setFocus()
-        self.stdout.setText(
-            f"{self.stdout.toHtml().replace('</html>', '')}<hr>{self.currentDir}<br><b>{self.command}</b><br></html>"
-        )
 
     def adjust_height(self):
         content_height = self.runtime_stdout.document().size().height()
