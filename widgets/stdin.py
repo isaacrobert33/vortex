@@ -1,10 +1,13 @@
 from PySide2.QtWidgets import *
 from PySide2.QtCore import *
 from PySide2.QtGui import *
+import os
 
 
 class StdIn(QTextEdit):
     returnPressed = Signal(str)
+    navigateUp = Signal(bool)
+    navigateDown = Signal(bool)
 
     def __init__(self, parent) -> None:
         super().__init__(parent=parent)
@@ -15,11 +18,20 @@ class StdIn(QTextEdit):
 
     def keyPressEvent(self, event) -> None:
         if event.key() == Qt.Key_Up:
-            self.navigate_up()
-        elif event.key() == Qt.Key_Down:
-            self.navigate_down()
+            self.navigateUp.emit(True)
         elif event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
             self.returnPressed.emit(self.toPlainText())
+        elif event.key() == Qt.Key_Tab:
+            t = self.toPlainText().split(" ")[-1]
+            match = []
+            dir = os.listdir()
+
+            for file in dir:
+                if t in file:
+                    match.append(file)
+
+            self.parent.dir_list.load_items(match)
+            self.parent.dir_list.setVisible(True)
         else:
             super().keyPressEvent(event)
 

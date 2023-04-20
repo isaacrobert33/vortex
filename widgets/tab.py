@@ -5,6 +5,7 @@ from PySide2.QtGui import *
 from PySide2.QtWidgets import *
 from .stdin import StdIn
 from .command_list import CommandList
+from .directory_list import DirectoryList
 import os
 import time
 import typing
@@ -22,6 +23,17 @@ current_cmd = None
 executed = False
 
 TIC, TOC = None, None
+
+
+with open(os.path.join(HOME_DIR, SHELL_HISTORY_FILENAME), "r") as f:
+    shell_history = list(set(f.read().split("\n")))
+
+    for i, c in enumerate(shell_history):
+        shell_history[i] = c.strip()
+        if ";" in c:
+            shell_history[i] = c.split(";")[1]
+
+CHDIR = None
 
 
 class ShellRunner(QThread):
@@ -50,6 +62,12 @@ class ShellRunner(QThread):
 
         while self.alive:
             if current_cmd and not executed:
+                if "cd " in current_cmd:
+                    current_cmd = (
+                        current_cmd
+                        + f' && pwd > ~/vortex/.chdir && export OLDPWD="{os.getcwd()}"'
+                    )
+
                 TIC = time.time()
                 self.shell.stdin.write(
                     f"{current_cmd} && echo 'done_executing_vortex'\n".encode()
@@ -83,17 +101,15 @@ class ShellReader(QThread):
         print("Done executing")
         global current_cmd, executed
         self.exec_done.emit(True)
+
+        if "cd " in current_cmd:
+            with open(f"{HOME_DIR}/vortex/.chdir", "r") as f:
+                dir = f.read().strip()
+                os.chdir(dir)
+            f.close()
+
         current_cmd = None
         executed = False
-
-
-with open(os.path.join(HOME_DIR, SHELL_HISTORY_FILENAME), "r") as f:
-    shell_history = list(set(f.read().split("\n")))
-
-    for i, c in enumerate(shell_history):
-        shell_history[i] = c.strip()
-        if ";" in c:
-            shell_history[i] = c.split(";")[1]
 
 
 class UiTab(QWidget):
@@ -142,12 +158,20 @@ class UiTab(QWidget):
         self.stdin.setWindowOpacity(0.5)
         # Connect the returnPressed signal of the input widget to the executeCommand slot
         self.stdin.returnPressed.connect(self.executeCommand)
+        self.stdin.navigateUp.connect(self.show_cmd_list)
 
         self.cmd_list = CommandList(self)
         self.cmd_list.setGeometry(QRect(0, 350, 960, 200))
         self.cmd_list.setObjectName(f"cmd_list-{tab_index}")
         self.cmd_list.cmd_clicked.connect(self.stdin.setText)
         self.cmd_list.load_items()
+        self.cmd_list.setVisible(False)
+
+        self.dir_list = DirectoryList(self)
+        self.dir_list.setGeometry(QRect(0, 350, 960, 200))
+        self.dir_list.setObjectName(f"dir_list-{tab_index}")
+        self.dir_list.dir_clicked.connect(self.auto_complete)
+        self.dir_list.setVisible(False)
 
         self.shell_proc = ShellRunner()
         self.shell_proc.readerInitiated.connect(self.thread_setup)
@@ -162,6 +186,16 @@ class UiTab(QWidget):
     def thread_setup(self, dt=None):
         self.shell_proc.reader.cmd_stdout.connect(self.updateOutput)
         self.shell_proc.reader.exec_done.connect(self.executed)
+
+    def show_cmd_list(self):
+        self.cmd_list.setVisible(True)
+        self.cmd_list.item_list.setCurrentItem(
+            self.cmd_list.item_list.item(self.cmd_list.item_list.count() - 1)
+        )
+
+    def auto_complete(self, text):
+        text_remnants = " ".join(self.stdin.toPlainText().split(" ")[:-1])
+        self.stdin.setText(f"{text_remnants} {text}")
 
     def executeCommand(self, ls=None):
         global current_cmd
