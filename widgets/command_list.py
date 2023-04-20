@@ -14,7 +14,7 @@ class CommandList(QWidget):
         self.setLayout(self.layout)
         self.item_list.itemClicked.connect(self.handle_item_clicked)
         self.setStyleSheet(
-            "background-color: rgb(14, 46, 52); border-top-left-radius: 5px; border-top-right-radius: 5px;"
+            "background-color: rgb(78, 153, 163); border-top-left-radius: 5px; border-top-right-radius: 5px;"
         )
         self.setWindowOpacity(0.5)
         self.item_list.itemSelectionChanged.connect(self.on_item_selection)

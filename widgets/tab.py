@@ -62,7 +62,7 @@ class ShellRunner(QThread):
 
         while self.alive:
             if current_cmd and not executed:
-                if "cd " in current_cmd:
+                if current_cmd and "cd " in current_cmd:
                     current_cmd = (
                         current_cmd
                         + f' && pwd > ~/vortex/.chdir && export OLDPWD="{os.getcwd()}"'
@@ -147,6 +147,17 @@ class UiTab(QWidget):
         )
         self.current_dir_label.setText(self.currentDir)
 
+        self.suggestor = QTextEdit(self)
+        self.suggestor.setGeometry(QRect(0, 575, 955, 38))
+        self.suggestor.setReadOnly(True)
+        self.suggestor.setObjectName(f"sgt-{tab_index}")
+        self.suggestor.setStyleSheet(
+            """border: none;
+            font: 75 bold 13pt "Courier New";
+            color: rgb(120, 120, 120);"""
+        )
+        self.suggestor.setWindowOpacity(0.5)
+
         # Create an stdin field
         self.stdin = StdIn(self)
         self.stdin.setGeometry(QRect(0, 575, 955, 38))
@@ -196,6 +207,7 @@ class UiTab(QWidget):
     def auto_complete(self, text):
         text_remnants = " ".join(self.stdin.toPlainText().split(" ")[:-1])
         self.stdin.setText(f"{text_remnants} {text}")
+        self.dir_list.setVisible(False)
 
     def executeCommand(self, ls=None):
         global current_cmd

@@ -23,6 +23,10 @@ class StdIn(QTextEdit):
             self.returnPressed.emit(self.toPlainText())
         elif event.key() == Qt.Key_Tab:
             t = self.toPlainText().split(" ")[-1]
+
+            if not t:
+                return
+
             match = []
             dir = os.listdir()
 
