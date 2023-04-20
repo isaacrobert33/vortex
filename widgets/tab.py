@@ -3,7 +3,7 @@
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
-from threading import Thread
+from .stdin import StdIn
 import os
 import sys
 import time
@@ -87,7 +87,7 @@ class ShellRunner(QThread):
             stdin=subprocess.PIPE,
             stdout=subprocess.PIPE,
         )
-        print("Started shell")
+
         self.reader = ShellReader(self.shell)
         self.reader.start()
         self.readerInitiated.emit(True)
@@ -132,7 +132,7 @@ class ShellReader(QThread):
 
 
 with open(os.path.join(HOME_DIR, SHELL_HISTORY_FILENAME), "r") as f:
-    shell_history = f.read().split("\n")
+    shell_history = list(set(f.read().split("\n")))
 
     for i, c in enumerate(shell_history):
         shell_history[i] = c.strip()
@@ -140,51 +140,9 @@ with open(os.path.join(HOME_DIR, SHELL_HISTORY_FILENAME), "r") as f:
             shell_history[i] = c.split(";")[1]
 
 
-class StdIn(QTextEdit):
-    returnPressed = Signal(str)
-
-    def __init__(self, parent) -> None:
-        super().__init__(parent=parent)
-        self.parent = parent
-        self.currentIndex = None
-
-        self.setFocus()
-
-    def keyPressEvent(self, event) -> None:
-        if event.key() == Qt.Key_Up:
-            self.navigate_up()
-        elif event.key() == Qt.Key_Down:
-            self.navigate_down()
-        elif event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
-            self.returnPressed.emit(self.toPlainText())
-        else:
-            super().keyPressEvent(event)
-
-    def navigate_up(self):
-        t = self.toPlainText().strip()
-        if not self.currentIndex:
-            shell_history.append(t)
-            self.setText(shell_history[-2].strip())
-            self.currentIndex = len(shell_history) - 2
-        else:
-            if not self.currentIndex == 0:
-                self.currentIndex -= 1
-                self.setText(shell_history[self.currentIndex])
-
-        self.textCursor().movePosition(self.textCursor().End)
-
-    def navigate_down(self):
-        t = self.toPlainText().strip()
-
-        if t and self.currentIndex is not None:
-            if not self.currentIndex == len(shell_history):
-                self.currentIndex += 1
-                self.setText(shell_history[self.currentIndex])
-
-        self.textCursor().movePosition(self.textCursor().End)
-
-
 class CommandList(QWidget):
+    cmd_clicked = Signal(str)
+
     def __init__(self, parent) -> None:
         super().__init__(parent)
 
@@ -194,12 +152,13 @@ class CommandList(QWidget):
         self.setLayout(self.layout)
         self.item_list.itemClicked.connect(self.handle_item_clicked)
         self.setStyleSheet(
-            "background-color: rgb(14, 46, 52, 230); border-radius: 5px;"
+            "background-color: rgb(14, 46, 52); border-top-left-radius: 5px; border-top-right-radius: 5px;"
         )
         self.setWindowOpacity(0.5)
+        # self.viewport().setHorizontalScrollBarPolicy(Qt.ScrollBarAlwaysOff)
 
     def handle_item_clicked(self, item):
-        print(item.text())
+        self.cmd_clicked.emit(item.text())
 
     def load_items(self):
         for command in shell_history:
@@ -217,6 +176,7 @@ class UiTab(QWidget):
 
         self.mainwindow = mainwindow
         self.command = None
+        self.shell_history = shell_history
 
         self.currentDir = os.getcwd().replace(HOME_DIR, "~")
         self.setStyleSheet("background-color: transparent;")
@@ -256,9 +216,9 @@ class UiTab(QWidget):
         self.cmd_list = CommandList(self)
         self.cmd_list.setGeometry(QRect(0, 350, 960, 200))
         self.cmd_list.setObjectName(f"cmd_list-{tab_index}")
+        self.cmd_list.cmd_clicked.connect(self.stdin.setText)
         self.cmd_list.load_items()
 
-        print("Running another instance of shell runner...")
         self.shell_proc = ShellRunner()
         self.shell_proc.readerInitiated.connect(self.thread_setup)
         self.shell_proc.start()
