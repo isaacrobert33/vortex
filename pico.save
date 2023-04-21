@@ -1,0 +1,2 @@
+None && echo 'done_executing_vortex' open .colima && echo 
+'done_executing_vortex'

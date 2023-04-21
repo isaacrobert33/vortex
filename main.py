@@ -13,6 +13,7 @@ background_path = "images/background.jpg"
 
 class Terminal(QMainWindow):
     ctrl_c_clicked = Signal(bool)
+    windowResized = Signal(QSize)
 
     def __init__(self, parent=None):
         super(Terminal, self).__init__(parent)
@@ -52,11 +53,9 @@ class Terminal(QMainWindow):
         shortcut = QShortcut(QKeySequence("Ctrl+C"), self)
         shortcut.activated.connect(self.cancel_process)
 
-    def keyPressEvent(self, event: QKeyEvent) -> None:
-        # if event.key() == Qt.Key_C:
-        #     print(event.modifiers() == Qt.ControlModifier)
-
-        return super().keyPressEvent(event)
+    def resizeEvent(self, event: QResizeEvent) -> None:
+        self.windowResized.emit(event.size())
+        return super().resizeEvent(event)
 
     def cancel_process(self):
         self.ctrl_c_clicked.emit(True)

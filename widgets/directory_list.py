@@ -14,7 +14,7 @@ class DirectoryList(QWidget):
         self.item_list = QListWidget()
         self.layout.addWidget(self.item_list)
         self.setLayout(self.layout)
-        # self.item_list.itemClicked.connect(self.handle_item_clicked)
+        self.item_list.itemClicked.connect(self.handle_item_clicked)
         self.setStyleSheet(
             "background-color: rgb(14, 46, 52); border-top-left-radius: 5px; border-top-right-radius: 5px;"
         )
@@ -24,8 +24,10 @@ class DirectoryList(QWidget):
     def handle_item_clicked(self, item):
         self.dir_clicked.emit(item.text())
         self.setVisible(False)
+        self.parent.dir_list_index = 0
 
     def on_item_selection(self):
+        print("selection changed")
         current_item = self.item_list.currentItem()
         if current_item:
             self.dir_clicked.emit(current_item.text())

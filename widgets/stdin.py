@@ -8,6 +8,7 @@ class StdIn(QTextEdit):
     returnPressed = Signal(str)
     navigateUp = Signal(str)
     navigateDown = Signal(str)
+    navigateDir = Signal(str)
 
     def __init__(self, parent) -> None:
         super().__init__(parent=parent)
@@ -27,6 +28,7 @@ class StdIn(QTextEdit):
                     self.parent.suggestor.setText("")
         else:
             self.parent.cmd_list.setVisible(False)
+            self.parent.dir_list.setVisible(False)
             self.parent.suggestor.setText("")
 
     def keyPressEvent(self, event) -> None:
@@ -42,20 +44,7 @@ class StdIn(QTextEdit):
             super().keyPressEvent(event)
             self.move_cursor_to_end()
         elif event.key() == Qt.Key_Tab:
-            t = self.toPlainText().split(" ")[-1]
-
-            if not t:
-                return
-
-            match = []
-            dir = os.listdir()
-
-            for file in dir:
-                if t in file:
-                    match.append(file)
-
-            self.parent.dir_list.load_items(match)
-            self.parent.dir_list.setVisible(True)
+            self.navigateDir.emit("down")
         else:
             super().keyPressEvent(event)
 
