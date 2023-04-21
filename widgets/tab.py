@@ -136,9 +136,6 @@ class UiTab(QWidget):
         # Create a text edit widget to display the output of the terminal
         self.stdout = QTextEdit(self)
         self.stdout.setObjectName(f"stdout-{tab_index}")
-        self.stdout.setGeometry(
-            QRect(-5, 0, self.mainwindow.width(), self.mainwindow.height() - 100)
-        )
         self.stdout.setStyleSheet(
             'border: 1px solid gray; background-color: transparent;font: 13pt "Courier New";'
         )
@@ -149,16 +146,12 @@ class UiTab(QWidget):
         # Create a directory label
         self.current_dir_label = QLabel(self)
         self.current_dir_label.setObjectName(f"dir-{tab_index}")
-        self.current_dir_label.setGeometry(QRect(0, 555, self.mainwindow.width(), 16))
         self.current_dir_label.setStyleSheet(
             "color: rgb(255, 72, 135); font-size:14px; font-weight:600; "
         )
         self.current_dir_label.setText(self.currentDir)
 
         self.suggestor = QTextEdit(self)
-        self.suggestor.setGeometry(
-            QRect(0, self.mainwindow.height() - 55, self.mainwindow.width() - 5, 38)
-        )
         self.suggestor.setReadOnly(True)
         self.suggestor.setObjectName(f"sgt-{tab_index}")
         self.suggestor.setStyleSheet(
@@ -170,9 +163,6 @@ class UiTab(QWidget):
 
         # Create an stdin field
         self.stdin = StdIn(self)
-        self.stdin.setGeometry(
-            QRect(0, self.mainwindow.height() - 55, self.mainwindow.width() - 5, 38)
-        )
         self.stdin.setObjectName(f"stdin-{tab_index}")
         self.stdin.setStyleSheet(
             """border: none;
@@ -186,18 +176,12 @@ class UiTab(QWidget):
         self.stdin.navigateDir.connect(self.navigate_dir_list)
 
         self.cmd_list = CommandList(self)
-        self.cmd_list.setGeometry(
-            QRect(0, self.mainwindow.width() - 290, self.mainwindow.width(), 200)
-        )
         self.cmd_list.setObjectName(f"cmd_list-{tab_index}")
         self.cmd_list.cmd_clicked.connect(self.update_stdin)
         self.cmd_list.load_items()
         self.cmd_list.setVisible(False)
 
         self.dir_list = DirectoryList(self)
-        self.dir_list.setGeometry(
-            QRect(0, self.mainwindow.width() - 290, self.mainwindow.width(), 200)
-        )
         self.dir_list.setObjectName(f"dir_list-{tab_index}")
         self.dir_list.dir_clicked.connect(self.auto_complete)
         self.dir_list.setVisible(False)
@@ -210,6 +194,29 @@ class UiTab(QWidget):
 
         self.cmd_list_index = self.cmd_list.item_list.count()
         self.dir_list_index = 0
+
+        self.mainwindow.windowResized.connect(self.setAllWidgetSize)
+        self.setAllWidgetSize()
+
+    def setAllWidgetSize(self, size=None):
+        self.stdout.setGeometry(
+            QRect(-5, 0, self.mainwindow.width(), self.mainwindow.height() - 100)
+        )
+        self.current_dir_label.setGeometry(
+            QRect(0, self.mainwindow.height() - 85, self.mainwindow.width(), 16)
+        )
+        self.suggestor.setGeometry(
+            QRect(0, self.mainwindow.height() - 55, self.mainwindow.width() - 5, 38)
+        )
+        self.stdin.setGeometry(
+            QRect(0, self.mainwindow.height() - 55, self.mainwindow.width() - 5, 38)
+        )
+        self.cmd_list.setGeometry(
+            QRect(0, self.mainwindow.width() - 290, self.mainwindow.width(), 200)
+        )
+        self.dir_list.setGeometry(
+            QRect(0, self.mainwindow.width() - 290, self.mainwindow.width(), 200)
+        )
 
     def thread_setup(self, dt=None):
         self.shell_proc.reader.cmd_stdout.connect(self.updateOutput)
