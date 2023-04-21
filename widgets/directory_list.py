@@ -27,7 +27,6 @@ class DirectoryList(QWidget):
         self.parent.dir_list_index = 0
 
     def on_item_selection(self):
-        print("selection changed")
         current_item = self.item_list.currentItem()
         if current_item:
             self.dir_clicked.emit(current_item.text())

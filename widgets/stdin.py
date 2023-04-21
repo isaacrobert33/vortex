@@ -16,8 +16,6 @@ class StdIn(QTextEdit):
         self.currentIndex = None
         self.textChanged.connect(self.auto_suggestor)
 
-        self.setFocus()
-
     def auto_suggestor(self):
         if self.toPlainText():
             for each in self.parent.shell_history[::-1]:

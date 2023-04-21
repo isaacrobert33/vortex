@@ -174,6 +174,7 @@ class UiTab(QWidget):
         self.stdin.navigateUp.connect(self.navigate_cmd_list)
         self.stdin.navigateDown.connect(self.navigate_cmd_list)
         self.stdin.navigateDir.connect(self.navigate_dir_list)
+        self.stdin.setFocus()
 
         self.cmd_list = CommandList(self)
         self.cmd_list.setObjectName(f"cmd_list-{tab_index}")
