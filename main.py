@@ -12,6 +12,8 @@ background_path = "images/background.jpg"
 
 
 class Terminal(QMainWindow):
+    ctrl_c_clicked = Signal(bool)
+
     def __init__(self, parent=None):
         super(Terminal, self).__init__(parent)
 
@@ -45,9 +47,19 @@ class Terminal(QMainWindow):
         self.setPalette(palette)
 
         self.tabs.create_new_tab(os.getcwd(), UiTab)
-        # self.tabs.create_new_tab(os.getcwd(), UiTab)
-        # Set the layout for the widget
         self.setCentralWidget(self.tabs)
+
+        shortcut = QShortcut(QKeySequence("Ctrl+C"), self)
+        shortcut.activated.connect(self.cancel_process)
+
+    def keyPressEvent(self, event: QKeyEvent) -> None:
+        # if event.key() == Qt.Key_C:
+        #     print(event.modifiers() == Qt.ControlModifier)
+
+        return super().keyPressEvent(event)
+
+    def cancel_process(self):
+        self.ctrl_c_clicked.emit(True)
 
 
 if __name__ == "__main__":

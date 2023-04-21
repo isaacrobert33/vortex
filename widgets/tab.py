@@ -20,7 +20,7 @@ elif os.environ["SHELL"].endswith("ksh"):
     SHELL_HISTORY_FILENAME, SHELL = ".sh_history", "sh"
 
 current_cmd = None
-executed = False
+executing = False
 
 TIC, TOC = None, None
 
@@ -47,7 +47,7 @@ class ShellRunner(QThread):
         self.reader = None
 
     def run(self) -> None:
-        global current_cmd, executed, TIC
+        global current_cmd, executing, TIC
         self.shell = subprocess.Popen(
             [SHELL],
             stderr=subprocess.PIPE,
@@ -56,12 +56,13 @@ class ShellRunner(QThread):
             stdout=subprocess.PIPE,
         )
 
-        self.reader = ShellReader(self.shell)
+        self.reader = ShellReader(self.shell, self)
         self.reader.start()
         self.readerInitiated.emit(True)
 
         while self.alive:
-            if current_cmd and not executed:
+            if current_cmd is not None and not executing:
+                print("executing", current_cmd)
                 if current_cmd and "cd " in current_cmd:
                     current_cmd = (
                         current_cmd
@@ -73,43 +74,48 @@ class ShellRunner(QThread):
                     f"{current_cmd} && echo 'done_executing_vortex'\n".encode()
                 )
                 self.shell.stdin.flush()
-                executed = True
+                executing = True
+                print("Done initiating execution", current_cmd)
 
 
 class ShellReader(QThread):
     cmd_stdout = Signal(str)
     exec_done = Signal(bool)
+    directoryChanged = Signal(str)
 
-    def __init__(self, shell) -> None:
+    def __init__(self, shell, parent_thread) -> None:
         super().__init__()
-
+        self.parent_thread = parent_thread
         self.exit = False
         self.shell = shell
 
     def run(self) -> None:
+        global TOC
         while not self.exit:
-            output = self.shell.stdout.readline().decode().strip()
+            if current_cmd and executing:
+                print("Reading...", current_cmd, executing)
+                output = self.shell.stdout.readline().decode().strip()
+                print("io", output)
+                if "done_executing_vortex" not in output:
+                    self.cmd_stdout.emit(output)
 
-            if "done_executing_vortex" not in output:
-                self.cmd_stdout.emit(output)
-
-            if executed and "done_executing_vortex" in output:
-                self.finished_exec()
-                TOC = time.time()
+                if executing and "done_executing_vortex" in output:
+                    self.finished_exec()
+                    TOC = time.time()
 
     def finished_exec(self):
-        print("Done executing")
-        global current_cmd, executed
-        self.exec_done.emit(True)
+        global current_cmd, executing
 
         if "cd " in current_cmd:
             with open(f"{HOME_DIR}/vortex/.chdir", "r") as f:
                 dir = f.read().strip()
-                os.chdir(dir)
+                self.directoryChanged.emit(dir)
             f.close()
 
+        self.exec_done.emit(True)
         current_cmd = None
-        executed = False
+        executing = False
+        print("finishing", current_cmd)
 
 
 class UiTab(QWidget):
@@ -169,12 +175,13 @@ class UiTab(QWidget):
         self.stdin.setWindowOpacity(0.5)
         # Connect the returnPressed signal of the input widget to the executeCommand slot
         self.stdin.returnPressed.connect(self.executeCommand)
-        self.stdin.navigateUp.connect(self.show_cmd_list)
+        self.stdin.navigateUp.connect(self.navigate_cmd_list)
+        self.stdin.navigateDown.connect(self.navigate_cmd_list)
 
         self.cmd_list = CommandList(self)
         self.cmd_list.setGeometry(QRect(0, 350, 960, 200))
         self.cmd_list.setObjectName(f"cmd_list-{tab_index}")
-        self.cmd_list.cmd_clicked.connect(self.stdin.setText)
+        self.cmd_list.cmd_clicked.connect(self.update_stdin)
         self.cmd_list.load_items()
         self.cmd_list.setVisible(False)
 
@@ -188,26 +195,49 @@ class UiTab(QWidget):
         self.shell_proc.readerInitiated.connect(self.thread_setup)
         self.shell_proc.start()
 
-    def keyPressEvent(self, event) -> None:
-        if event.key() == Qt.Key_C and event.modifiers() == Qt.ControlModifier:
-            print("Ctrl+C was pressed")
+        self.mainwindow.ctrl_c_clicked.connect(self.cancel_execution)
 
-        return super().keyPressEvent(event)
+        self.cmd_list_index = self.cmd_list.item_list.count()
+        self.dir_list_index = self.dir_list.item_list.count()
 
     def thread_setup(self, dt=None):
         self.shell_proc.reader.cmd_stdout.connect(self.updateOutput)
         self.shell_proc.reader.exec_done.connect(self.executed)
+        self.shell_proc.reader.directoryChanged.connect(self.dir_changed)
 
-    def show_cmd_list(self):
-        self.cmd_list.setVisible(True)
-        self.cmd_list.item_list.setCurrentItem(
-            self.cmd_list.item_list.item(self.cmd_list.item_list.count() - 1)
-        )
+    def navigate_dir_list(self, direction="down"):
+        if not self.dir_list.isVisible():
+            self.dir_list.setVisible(True)
+
+    def navigate_cmd_list(self, direction="up"):
+        if not self.cmd_list.isVisible():
+            self.cmd_list.setVisible(True)
+        if (
+            self.cmd_list_index >= 0
+            and not self.cmd_list_index > self.cmd_list.item_list.count()
+        ):
+            self.cmd_list_index = (
+                self.cmd_list_index - 1
+                if direction == "up"
+                else self.cmd_list_index + 1
+            )
+            self.cmd_list.item_list.setCurrentItem(
+                self.cmd_list.item_list.item(self.cmd_list_index)
+            )
+
+    def update_stdin(self, text):
+        self.stdin.setText(text)
+        self.stdin.move_cursor_to_end()
+
+    def cancel_execution(self):
+        self.shell_proc.shell.send_signal(subprocess.signal.SIGINT)
+        self.shell_proc.reader.finished_exec()
 
     def auto_complete(self, text):
         text_remnants = " ".join(self.stdin.toPlainText().split(" ")[:-1])
         self.stdin.setText(f"{text_remnants} {text}")
         self.dir_list.setVisible(False)
+        self.stdin.move_cursor_to_end()
 
     def executeCommand(self, ls=None):
         global current_cmd
@@ -224,6 +254,7 @@ class UiTab(QWidget):
 
         if "exit" in self.command:
             self.parent.closeTab(self.tab_index)
+            return
 
         current_cmd = self.command
         self.stdin.setDisabled(True)
@@ -235,11 +266,14 @@ class UiTab(QWidget):
         cursor.insertText(output + "\n")
         self.stdout.setTextCursor(cursor)
 
+    def dir_changed(self, new_dir):
+        print("new dir", new_dir)
+        self.current_dir_label.setText(new_dir.replace(HOME_DIR, "~"))
+
     def executed(self, state):
-        if "cd " in self.command and state:
-            self.currentDir = os.getcwd().replace(HOME_DIR, "~")
-            self.current_dir_label.setText(self.currentDir)
-        elif "clear" in self.command:
+        print("Done executing...", self.command)
+
+        if "clear" in self.command:
             self.stdout.setText("")
 
         # Clear the input widget
