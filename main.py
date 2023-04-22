@@ -45,7 +45,7 @@ class Terminal(QMainWindow):
 
         self.background_pixmap = QPixmap(settings["bg_image"])
 
-        self.overlay_color = QColor(*settings["theme_color"], 230)
+        self.overlay_color = QColor(*settings["theme_color"], 190)
         self.overlay_pixmap = QPixmap(QSize(self.width() * 2, self.height() * 2))
         self.overlay_pixmap.fill(self.overlay_color)
 

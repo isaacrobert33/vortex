@@ -23,17 +23,17 @@ def load_settings() -> dict:
 
 
 def set_settings(bg_image=None, theme_color: list = None) -> bool:
-    with open(VORTEX_SETTINGS, "r+") as f:
-        d = json.load(f)
+    with open(VORTEX_SETTINGS, "r") as fr:
+        d = json.load(fr)
         if bg_image:
             d["bg_image"] = bg_image
         if theme_color:
             d["theme_color"] = theme_color
 
-        f.seek(0)
-        json.dump(d, f, indent=4)
+    with open(VORTEX_SETTINGS, "w") as fw:
+        json.dump(d, fw, indent=4)
 
-    f.close()
+    fw.close()
 
     return True
 
