@@ -18,7 +18,7 @@ class UiTabs(QTabWidget):
         self.new_tab_btn.clicked.connect(self.create_new_tab)
 
         self.setTabShape(self.Rounded)
-        self.setCornerWidget(self.new_tab_btn, corner=Qt.TopRightCorner)
+        # self.setCornerWidget(self.new_tab_btn, corner=Qt.TopRightCorner)
         self.setStyleSheet("background-color: transparent;")
 
         self.tabCloseRequested.connect(self.closeTab)

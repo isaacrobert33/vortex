@@ -94,7 +94,7 @@ class ShellReader(QThread):
             if current_cmd and executing:
                 output = self.shell.stdout.readline().decode().strip()
                 err = self.shell.stderr.readline().decode.strip()
-                print(err)
+
                 if "done_executing_vortex" not in output:
                     self.cmd_stdout.emit(output)
 
