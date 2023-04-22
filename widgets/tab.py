@@ -7,6 +7,7 @@ from .stdin import StdIn
 from .command_list import CommandList
 from .directory_list import DirectoryList
 import os
+import git
 import time
 import typing
 import subprocess
@@ -91,9 +92,7 @@ class ShellReader(QThread):
         global TOC
         while not self.exit:
             if current_cmd and executing:
-                print("Reading...", current_cmd, executing)
                 output = self.shell.stdout.readline().decode().strip()
-                print("io", output)
                 if "done_executing_vortex" not in output:
                     self.cmd_stdout.emit(output)
 
@@ -113,7 +112,6 @@ class ShellReader(QThread):
         self.exec_done.emit(True)
         current_cmd = None
         executing = False
-        print("finishing", current_cmd)
 
 
 class UiTab(QWidget):
@@ -128,7 +126,6 @@ class UiTab(QWidget):
         self.command = None
         self.shell_history = shell_history
 
-        self.currentDir = os.getcwd().replace(HOME_DIR, "~")
         self.setStyleSheet("background-color: transparent;")
 
         # Create a text edit widget to display the output of the terminal
@@ -147,7 +144,7 @@ class UiTab(QWidget):
         self.current_dir_label.setStyleSheet(
             "color: rgb(255, 72, 135); font-size:14px; font-weight:600; "
         )
-        self.current_dir_label.setText(f"{self.currentDir} $")
+        self.current_dir_label.setText(self.get_dir_label())
 
         self.suggestor = QTextEdit(self)
         self.suggestor.setReadOnly(True)
@@ -197,6 +194,23 @@ class UiTab(QWidget):
         self.mainwindow.windowResized.connect(self.setAllWidgetSize)
         self.setAllWidgetSize()
 
+        self.label_buffer = ""
+
+    def get_dir_label(self):
+        label = f'{os.getcwd().replace(HOME_DIR, "~")}$'
+        if os.path.exists("./.git"):
+            branch = self.get_git_branch()
+            label = f"{label.replace('$', '')} git:({branch})$"
+        else:
+            pass
+
+        return label
+
+    def get_git_branch(self):
+        repo = git.Repo("./")
+        current_branch = repo.active_branch.name
+        return current_branch
+
     def setAllWidgetSize(self, size=None):
         self.stdout.setGeometry(
             QRect(-5, 0, self.mainwindow.width(), self.mainwindow.height() - 100)
@@ -205,10 +219,10 @@ class UiTab(QWidget):
             QRect(0, self.mainwindow.height() - 85, self.mainwindow.width(), 16)
         )
         self.suggestor.setGeometry(
-            QRect(0, self.mainwindow.height() - 55, self.mainwindow.width() - 5, 38)
+            QRect(0, self.mainwindow.height() - 60, self.mainwindow.width() - 5, 38)
         )
         self.stdin.setGeometry(
-            QRect(0, self.mainwindow.height() - 55, self.mainwindow.width() - 5, 38)
+            QRect(0, self.mainwindow.height() - 60, self.mainwindow.width() - 5, 38)
         )
         self.cmd_list.setGeometry(
             QRect(0, self.mainwindow.width() - 290, self.mainwindow.width(), 200)
@@ -251,7 +265,6 @@ class UiTab(QWidget):
                 self.dir_list_index >= 0
                 and self.dir_list_index <= self.dir_list.item_list.count()
             ):
-                print("b", self.dir_list_index)
                 if self.dir_list_index == self.dir_list.item_list.count():
                     self.dir_list_index = -1
                 if self.dir_list_index < 0:
@@ -313,8 +326,9 @@ class UiTab(QWidget):
             f.write(f"\n{self.command}")
         f.close()
 
-        stdout = f"{self.stdout.toHtml().replace('</html>', '')}<hr>{self.currentDir}<br><b>{self.command}</b><br></html>"
+        stdout = f"{self.stdout.toHtml().replace('</html>', '')}<hr>{self.get_dir_label()}<br><b>{self.command}</b><br></html>"
         self.stdout.setText(stdout)
+        self.label_buffer = self.get_dir_label()
 
         if "exit" in self.command:
             self.parent.closeTab(self.tab_index)
@@ -335,11 +349,10 @@ class UiTab(QWidget):
         self.stdout.setTextCursor(cursor)
 
     def dir_changed(self, new_dir):
-        self.current_dir_label.setText(f"{new_dir.replace(HOME_DIR,'~')}$")
+        os.chdir(new_dir)
+        self.current_dir_label.setText(self.get_dir_label())
 
     def executed(self, state):
-        # print("Done executing...", self.command)
-
         if "clear" in self.command:
             self.stdout.setText("")
 
@@ -347,6 +360,14 @@ class UiTab(QWidget):
         self.stdin.clear()
         self.stdin.setDisabled(False)
         self.stdin.setFocus()
+        self.add_execution_time()
+
+    def add_execution_time(self):
+        t = self.stdout.toHtml()
+        n = f"{self.label_buffer} ({round(TOC-TIC, 3)}s)"
+        last_index = t.rfind(self.label_buffer)
+        new_stdout = t[:last_index] + n + t[last_index + len(self.label_buffer) :]
+        self.stdout.setText(new_stdout)
 
     def adjust_height(self):
         content_height = self.runtime_stdout.document().size().height()
