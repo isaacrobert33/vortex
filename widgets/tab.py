@@ -93,8 +93,13 @@ class ShellReader(QThread):
         while not self.exit:
             if current_cmd and executing:
                 output = self.shell.stdout.readline().decode().strip()
+                err = self.shell.stderr.readline().decode.strip()
+                print(err)
                 if "done_executing_vortex" not in output:
                     self.cmd_stdout.emit(output)
+
+                if "Password:" in err:
+                    self.cmd_stdout.emit("Password:")
 
                 if executing and "done_executing_vortex" in output:
                     TOC = time.time()
@@ -264,16 +269,19 @@ class UiTab(QWidget):
                 self.dir_list_index >= 0
                 and self.dir_list_index <= self.dir_list.item_list.count()
             ):
-                if self.dir_list_index == self.dir_list.item_list.count():
-                    self.dir_list_index = -1
-                if self.dir_list_index < 0:
-                    self.dir_list_index = self.dir_list.item_list.count() - 2
-
                 self.dir_list_index = (
                     self.dir_list_index + 1
                     if direction == "down"
                     else self.dir_list_index - 1
                 )
+                print(self.dir_list_index)
+
+                if self.dir_list_index == self.dir_list.item_list.count():
+                    self.dir_list_index = 0
+
+                if self.dir_list_index == -1:
+                    self.dir_list_index = self.dir_list.item_list.count() - 1
+
                 self.dir_list.item_list.setCurrentItem(
                     self.dir_list.item_list.item(self.dir_list_index)
                 )
