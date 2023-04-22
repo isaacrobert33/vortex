@@ -8,8 +8,10 @@ from PySide2.QtGui import *
 from widgets.tab import UiTab
 from widgets.tabs import UiTabs
 from widgets.settings import Settings
+from utils.config import load_settings, setup_vortex
 
-background_path = "images/background.jpg"
+setup_vortex()
+settings = load_settings()
 
 
 class SideBar(QDockWidget):
@@ -41,10 +43,10 @@ class Terminal(QMainWindow):
         #     "color: rgb(255, 255, 255);\n" "background-color: rgb(33, 83, 83);"
         # )
 
-        self.background_pixmap = QPixmap(background_path)
+        self.background_pixmap = QPixmap(settings["bg_image"])
 
-        self.overlay_color = QColor(7, 23, 26, 230)
-        self.overlay_pixmap = QPixmap(QSize(960, self.height() * 2))
+        self.overlay_color = QColor(*settings["theme_color"], 230)
+        self.overlay_pixmap = QPixmap(QSize(self.width() * 2, self.height() * 2))
         self.overlay_pixmap.fill(self.overlay_color)
 
         # Set the composition mode to source-over

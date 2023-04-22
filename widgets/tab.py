@@ -62,7 +62,6 @@ class ShellRunner(QThread):
 
         while self.alive:
             if current_cmd is not None and not executing:
-                print("executing", current_cmd)
                 if current_cmd and "cd " in current_cmd:
                     current_cmd = (
                         current_cmd
@@ -75,7 +74,6 @@ class ShellRunner(QThread):
                 )
                 self.shell.stdin.flush()
                 executing = True
-                print("Done initiating execution", current_cmd)
 
 
 class ShellReader(QThread):
@@ -149,7 +147,7 @@ class UiTab(QWidget):
         self.current_dir_label.setStyleSheet(
             "color: rgb(255, 72, 135); font-size:14px; font-weight:600; "
         )
-        self.current_dir_label.setText(self.currentDir)
+        self.current_dir_label.setText(f"{self.currentDir} $")
 
         self.suggestor = QTextEdit(self)
         self.suggestor.setReadOnly(True)
@@ -337,11 +335,10 @@ class UiTab(QWidget):
         self.stdout.setTextCursor(cursor)
 
     def dir_changed(self, new_dir):
-        print("new dir", new_dir)
-        self.current_dir_label.setText(new_dir.replace(HOME_DIR, "~"))
+        self.current_dir_label.setText(f"{new_dir.replace(HOME_DIR,'~')}$")
 
     def executed(self, state):
-        print("Done executing...", self.command)
+        # print("Done executing...", self.command)
 
         if "clear" in self.command:
             self.stdout.setText("")

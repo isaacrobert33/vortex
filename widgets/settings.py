@@ -1,8 +1,11 @@
 from PySide2.QtCore import *
 from PySide2.QtGui import *
 from PySide2.QtWidgets import *
+from utils.config import load_settings, set_settings, VORTEX_ASSETS, setup_vortex
+import os, shutil
 
-background_path = "images/background.jpg"
+setup_vortex()
+settings = load_settings()
 
 
 class Settings(QWidget):
@@ -40,7 +43,7 @@ class Settings(QWidget):
             self.color_choice.emit((r, g, b))
 
     def set_color_theme(self, rgb_color):
-        background_pixmap = QPixmap(background_path)
+        background_pixmap = QPixmap(settings["bg_image"])
         overlay_color = QColor(*rgb_color, 230)
         overlay_pixmap = QPixmap(
             QSize(self.mainwindow.width(), self.mainwindow.height() * 2)
@@ -61,6 +64,34 @@ class Settings(QWidget):
             ),
         )
         self.mainwindow.setPalette(palette)
+        set_settings(theme_color=rgb_color)
 
     def set_bg_image(self):
-        pass
+        bg_path = self.bg_image_text.text()
+
+        if os.path.exists(bg_path):
+            shutil.copy(bg_path, f"{VORTEX_ASSETS}/{os.path.basename(bg_path)}")
+            background_pixmap = QPixmap(bg_path)
+            overlay_color = QColor(*settings["theme_color"], 230)
+            overlay_pixmap = QPixmap(
+                QSize(self.mainwindow.width(), self.mainwindow.height() * 2)
+            )
+            overlay_pixmap.fill(overlay_color)
+
+            # Set the composition mode to source-over
+            painter = QPainter(background_pixmap)
+            painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
+            painter.drawPixmap(0, 0, overlay_pixmap)
+            painter.end()
+
+            palette = QPalette()
+            palette.setBrush(
+                QPalette.Background,
+                background_pixmap.scaled(
+                    self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation
+                ),
+            )
+            self.mainwindow.setPalette(palette)
+            set_settings(bg_image=f"{VORTEX_ASSETS}/{os.path.basename(bg_path)}")
+        else:
+            print("BG Path doesn't exists")
