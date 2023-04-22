@@ -1,7 +1,11 @@
 from PySide2.QtCore import *
 from PySide2.QtWidgets import *
 from PySide2.QtGui import *
+from utils.config import setup_vortex, load_settings
 import os
+
+setup_vortex()
+settings = load_settings()
 
 
 class DirectoryList(QWidget):
@@ -16,7 +20,7 @@ class DirectoryList(QWidget):
         self.setLayout(self.layout)
         self.item_list.itemClicked.connect(self.handle_item_clicked)
         self.setStyleSheet(
-            "background-color: rgb(14, 46, 52); border-top-left-radius: 5px; border-top-right-radius: 5px;"
+            f"background-color: rgb({settings['theme_color'][0]+30}, {settings['theme_color'][1]+30}, {settings['theme_color'][2]+30}); border-top-left-radius: 5px; border-top-right-radius: 5px;"
         )
         self.setWindowOpacity(0.5)
         self.item_list.itemSelectionChanged.connect(self.on_item_selection)

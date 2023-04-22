@@ -9,7 +9,8 @@ settings = load_settings()
 
 
 class Settings(QWidget):
-    color_choice = Signal(tuple)
+    colorChoice = Signal(tuple)
+    newBackgroundPath = Signal(str)
 
     def __init__(self, parent: QWidget = None, mainwindow=None) -> None:
         super().__init__(parent)
@@ -19,28 +20,34 @@ class Settings(QWidget):
         self.color_btn = QPushButton("Choose a Theme color")
         self.color_btn.clicked.connect(self.open_color_dialog)
 
-        self.bg_image_text = QLineEdit()
-        self.bg_image_text.setPlaceholderText("Enter background image path")
+        self.bg_image_btn = QPushButton("Select Wallpaper")
+        self.bg_image_btn.clicked.connect(self.open_file_dialog)
 
-        self.bg_image_btn = QPushButton("Set")
-        self.bg_image_btn.clicked.connect(self.set_bg_image)
-
-        self.color_choice.connect(self.set_color_theme)
+        self.colorChoice.connect(self.set_color_theme)
+        self.newBackgroundPath.connect(self.set_bg_image)
 
         layout = QVBoxLayout()
         layout.addWidget(self.color_btn)
-        layout.addWidget(self.bg_image_text)
         layout.addWidget(self.bg_image_btn)
         self.setLayout(layout)
 
     def open_color_dialog(self):
         # Open a color dialog and get the selected color
-        color = QColorDialog.getColor()
+        color = QColorDialog.getColor(initial=QColor(*settings["theme_color"]))
 
         # If a color was selected, get its RGB values
         if color.isValid():
             r, g, b = color.red(), color.green(), color.blue()
-            self.color_choice.emit((r, g, b))
+            self.colorChoice.emit((r, g, b))
+
+    def open_file_dialog(self):
+        filename, _ = QFileDialog.getOpenFileName(
+            None, "Select wallpaper", ".", "All Files (*)"
+        )
+        if filename:
+            self.newBackgroundPath.emit(filename)
+        else:
+            pass
 
     def set_color_theme(self, rgb_color):
         background_pixmap = QPixmap(settings["bg_image"])
@@ -66,9 +73,8 @@ class Settings(QWidget):
         self.mainwindow.setPalette(palette)
         set_settings(theme_color=rgb_color)
 
-    def set_bg_image(self):
-        bg_path = self.bg_image_text.text()
-
+    def set_bg_image(self, filename):
+        bg_path = filename
         if os.path.exists(bg_path):
             shutil.copy(bg_path, f"{VORTEX_ASSETS}/{os.path.basename(bg_path)}")
             background_pixmap = QPixmap(bg_path)

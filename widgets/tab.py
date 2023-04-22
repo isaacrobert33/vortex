@@ -97,8 +97,8 @@ class ShellReader(QThread):
                     self.cmd_stdout.emit(output)
 
                 if executing and "done_executing_vortex" in output:
-                    self.finished_exec()
                     TOC = time.time()
+                    self.finished_exec()
 
     def finished_exec(self):
         global current_cmd, executing
@@ -174,7 +174,6 @@ class UiTab(QWidget):
         self.cmd_list = CommandList(self)
         self.cmd_list.setObjectName(f"cmd_list-{tab_index}")
         self.cmd_list.cmd_clicked.connect(self.update_stdin)
-        self.cmd_list.load_items()
         self.cmd_list.setVisible(False)
 
         self.dir_list = DirectoryList(self)
@@ -225,10 +224,10 @@ class UiTab(QWidget):
             QRect(0, self.mainwindow.height() - 60, self.mainwindow.width() - 5, 38)
         )
         self.cmd_list.setGeometry(
-            QRect(0, self.mainwindow.width() - 290, self.mainwindow.width(), 200)
+            QRect(0, self.mainwindow.height() - 290, self.mainwindow.width(), 200)
         )
         self.dir_list.setGeometry(
-            QRect(0, self.mainwindow.width() - 290, self.mainwindow.width(), 200)
+            QRect(0, self.mainwindow.height() - 290, self.mainwindow.width(), 200)
         )
 
     def thread_setup(self, dt=None):
@@ -286,6 +285,7 @@ class UiTab(QWidget):
 
         if not self.cmd_list.isVisible():
             self.cmd_list.setVisible(True)
+
         if (
             self.cmd_list_index >= 0
             and not self.cmd_list_index > self.cmd_list.item_list.count()
@@ -320,7 +320,8 @@ class UiTab(QWidget):
         global current_cmd
         # Get the command to be executed from the input widget
         self.command = self.stdin.toPlainText().strip()
-        shell_history.append(self.command)
+        self.shell_history.append(self.command)
+        self.cmd_list.add_cmd(self.command)
 
         with open(os.path.join(HOME_DIR, SHELL_HISTORY_FILENAME), "a") as f:
             f.write(f"\n{self.command}")
@@ -363,11 +364,14 @@ class UiTab(QWidget):
         self.add_execution_time()
 
     def add_execution_time(self):
-        t = self.stdout.toHtml()
-        n = f"{self.label_buffer} ({round(TOC-TIC, 3)}s)"
-        last_index = t.rfind(self.label_buffer)
-        new_stdout = t[:last_index] + n + t[last_index + len(self.label_buffer) :]
-        self.stdout.setText(new_stdout)
+        try:
+            t = self.stdout.toHtml()
+            n = f"{self.label_buffer} ({round(TOC-TIC, 3)}s)"
+            last_index = t.rfind(self.label_buffer)
+            new_stdout = t[:last_index] + n + t[last_index + len(self.label_buffer) :]
+            self.stdout.setText(new_stdout)
+        except TypeError:
+            pass
 
     def adjust_height(self):
         content_height = self.runtime_stdout.document().size().height()
