@@ -36,6 +36,7 @@ class StdIn(QTextEdit):
             self.navigateDown.emit("down")
         elif event.key() == Qt.Key_Return or event.key() == Qt.Key_Enter:
             self.returnPressed.emit(self.toPlainText())
+            super().keyPressEvent(event)
         elif event.key() == Qt.Key_Right and self.parent.suggestor.toPlainText():
             self.setText(self.parent.suggestor.toPlainText())
             self.parent.suggestor.setText("")
