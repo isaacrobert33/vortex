@@ -10,9 +10,6 @@ from widgets.tabs import UiTabs
 from widgets.settings import Settings
 from utils.config import load_settings, setup_vortex
 
-setup_vortex()
-settings = load_settings()
-
 
 class SideBar(QDockWidget):
     def __init__(self, parent):
@@ -35,6 +32,9 @@ class Terminal(QMainWindow):
     def __init__(self, parent=None):
         super(Terminal, self).__init__(parent)
 
+        setup_vortex()
+        settings = load_settings()
+
         # Create a layout to hold the widgets
         self.tabs = UiTabs(self)
         # self.setWindowOpacity(0.9)
@@ -45,7 +45,7 @@ class Terminal(QMainWindow):
 
         self.background_pixmap = QPixmap(settings["bg_image"])
 
-        self.overlay_color = QColor(*settings["theme_color"], 190)
+        self.overlay_color = QColor(*settings["theme_color"], 150)
         self.overlay_pixmap = QPixmap(QSize(self.width() * 2, self.height() * 2))
         self.overlay_pixmap.fill(self.overlay_color)
 
@@ -96,6 +96,11 @@ class Terminal(QMainWindow):
     def handle_dock_widget(self):
         if self.side_bar.isFloating() and not self.side_bar.isVisible():
             self.side_bar_btn.setVisible(True)
+
+    def restart(self):
+        self.close()
+        new_instance = Terminal()
+        new_instance.show()
 
 
 if __name__ == "__main__":

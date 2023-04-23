@@ -8,6 +8,37 @@ setup_vortex()
 settings = load_settings()
 
 
+class RestartDialog(QDialog):
+    positive = Signal(bool)
+
+    def __init__(self):
+        super().__init__()
+
+        self.setWindowTitle("Restart")
+
+        label = QLabel("Restart vortex")
+        ok_button = QPushButton("OK")
+        cancel_button = QPushButton("Cancel")
+
+        hbox = QHBoxLayout()
+        hbox.addStretch(1)
+        hbox.addWidget(ok_button)
+        hbox.addWidget(cancel_button)
+
+        vbox = QVBoxLayout()
+        vbox.addWidget(label)
+        vbox.addLayout(hbox)
+
+        self.setLayout(vbox)
+
+        ok_button.clicked.connect(self.positive_response)
+        cancel_button.clicked.connect(self.close)
+
+    def positive_response(self):
+        self.close()
+        self.positive.emit(True)
+
+
 class Settings(QWidget):
     colorChoice = Signal(tuple)
     newBackgroundPath = Signal(str)
@@ -50,54 +81,21 @@ class Settings(QWidget):
             pass
 
     def set_color_theme(self, rgb_color):
-        background_pixmap = QPixmap(settings["bg_image"])
-        overlay_color = QColor(*rgb_color, 230)
-        overlay_pixmap = QPixmap(
-            QSize(self.mainwindow.width(), self.mainwindow.height() * 2)
-        )
-        overlay_pixmap.fill(overlay_color)
+        dialog = RestartDialog()
+        dialog.positive.connect(self.mainwindow.restart)
 
-        # Set the composition mode to source-over
-        painter = QPainter(background_pixmap)
-        painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
-        painter.drawPixmap(0, 0, overlay_pixmap)
-        painter.end()
-
-        palette = QPalette()
-        palette.setBrush(
-            QPalette.Background,
-            background_pixmap.scaled(
-                self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation
-            ),
-        )
-        self.mainwindow.setPalette(palette)
         set_settings(theme_color=rgb_color)
+
+        dialog.exec_()
 
     def set_bg_image(self, filename):
         bg_path = filename
         if os.path.exists(bg_path):
             shutil.copy(bg_path, f"{VORTEX_ASSETS}/{os.path.basename(bg_path)}")
-            background_pixmap = QPixmap(bg_path)
-            overlay_color = QColor(*settings["theme_color"], 230)
-            overlay_pixmap = QPixmap(
-                QSize(self.mainwindow.width(), self.mainwindow.height() * 2)
-            )
-            overlay_pixmap.fill(overlay_color)
-
-            # Set the composition mode to source-over
-            painter = QPainter(background_pixmap)
-            painter.setCompositionMode(QPainter.CompositionMode_SourceOver)
-            painter.drawPixmap(0, 0, overlay_pixmap)
-            painter.end()
-
-            palette = QPalette()
-            palette.setBrush(
-                QPalette.Background,
-                background_pixmap.scaled(
-                    self.size(), Qt.IgnoreAspectRatio, Qt.SmoothTransformation
-                ),
-            )
-            self.mainwindow.setPalette(palette)
             set_settings(bg_image=f"{VORTEX_ASSETS}/{os.path.basename(bg_path)}")
+            dialog = RestartDialog()
+            dialog.positive.connect(self.mainwindow.restart)
+
+            dialog.exec_()
         else:
             print("BG Path doesn't exists")

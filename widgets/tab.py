@@ -202,6 +202,7 @@ class UiTab(QWidget):
 
     def get_dir_label(self):
         label = f'{os.getcwd().replace(HOME_DIR, "~")}$'
+
         if os.path.exists("./.git"):
             branch = self.get_git_branch()
             label = f"{label.replace('$', '')} git:({branch})$"
@@ -274,7 +275,6 @@ class UiTab(QWidget):
                     if direction == "down"
                     else self.dir_list_index - 1
                 )
-                print(self.dir_list_index)
 
                 if self.dir_list_index == self.dir_list.item_list.count():
                     self.dir_list_index = 0
