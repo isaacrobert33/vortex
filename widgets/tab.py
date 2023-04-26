@@ -93,13 +93,13 @@ class ShellReader(QThread):
         while not self.exit:
             if current_cmd and executing:
                 output = self.shell.stdout.readline().decode().strip()
-                err = self.shell.stderr.readline().decode.strip()
+                # err = self.shell.stderr.readline().decode().strip()
 
                 if "done_executing_vortex" not in output:
                     self.cmd_stdout.emit(output)
 
-                if "Password:" in err:
-                    self.cmd_stdout.emit("Password:")
+                # if "Password:" in err:
+                #     self.cmd_stdout.emit("Password:")
 
                 if executing and "done_executing_vortex" in output:
                     TOC = time.time()
