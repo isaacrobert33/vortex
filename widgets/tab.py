@@ -27,7 +27,10 @@ TIC, TOC = None, None
 
 
 with open(os.path.join(HOME_DIR, SHELL_HISTORY_FILENAME), "r") as f:
-    shell_history = list(set(f.read().split("\n")))
+    try:
+        shell_history = list(set(f.read().split("\n")))
+    except UnicodeDecodeError:
+        shell_history = []
 
     for i, c in enumerate(shell_history):
         shell_history[i] = c.strip()
